@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@ant-design/pro-table": "^3.19.0"
+  }
+}

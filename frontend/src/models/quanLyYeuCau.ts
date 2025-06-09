@@ -1,24 +1,25 @@
-import { getYeuCau, updateTrangThaiYeuCau } from '@/services/QuanLyYeuCau';
-import type { YeuCau } from '@/services/QuanLyYeuCau/typing';
+import { addYeuCau, duyetYeuCau, getYeuCau, tuChoiYeuCau } from '@/services/QuanLyYeuCau';
 import { message } from 'antd';
 import type { Effect, Reducer } from 'umi';
 
-// 1. Định nghĩa kiểu cho State
+// 1. Định nghĩa kiểu cho State - Cập nhật kiểu dữ liệu cho data
 export interface QuanLyYeuCauStateType {
-  data: YeuCau[];
+  data: QuanLyYeuCau.Record[]; // Sử dụng Record từ namespace QuanLyYeuCau toàn cục
   total: number;
   page: number;
   limit: number;
   loading: boolean;
 }
 
-// 2. Định nghĩa kiểu cho Model
+// 2. Định nghĩa kiểu cho Model - Cập nhật danh sách effects
 export interface QuanLyYeuCauModelType {
   namespace: 'quanLyYeuCau';
   state: QuanLyYeuCauStateType;
   effects: {
     get: Effect;
-    updateTrangThai: Effect;
+    add: Effect;
+    approve: Effect;
+    reject: Effect;
   };
   reducers: {
     save: Reducer<QuanLyYeuCauStateType>;
@@ -35,40 +36,66 @@ const ModelQuanLyYeuCau: QuanLyYeuCauModelType = {
     limit: 10,
     loading: false,
   },
+
+  // === CẬP NHẬT TOÀN BỘ KHỐI EFFECTS ===
   effects: {
-    *get({ payload }, { call, put }) {
+    *get({ payload }, { call, put }): any {
+      // Tách callback và các tham số khác ra từ payload
+      const { callback, ...restPayload } = payload;
       yield put({ type: 'save', payload: { loading: true } });
       try {
-        // Sửa lỗi 'yield' expression bằng cách thêm kiểu tường minh
-        const response: { data: YeuCau[]; total: number } = yield call(getYeuCau, payload);
-        yield put({
-          type: 'save',
-          payload: {
-            data: response.data ?? [],
-            total: response.total ?? 0,
-            page: payload.page,
-            limit: payload.limit,
-          },
-        });
+        const response = yield call(getYeuCau, restPayload);
+        if (response && response.success) {
+          yield put({
+            type: 'save',
+            payload: { data: response.data.docs, total: response.data.totalDocs },
+          });
+          if (callback) callback(response.data); // Gọi callback và trả về dữ liệu
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy danh sách yêu cầu:', error);
+        if (callback) callback(null); // Báo cho table biết là đã có lỗi
       } finally {
         yield put({ type: 'save', payload: { loading: false } });
       }
     },
-    *updateTrangThai({ payload }, { call, put, select }) {
-      const { id, trangThai, successMessage } = payload;
-      yield call(updateTrangThaiYeuCau, id, trangThai);
-      message.success(successMessage);
-      const { page, limit } = yield select(
-        (state: { quanLyYeuCau: QuanLyYeuCauStateType }) => state.quanLyYeuCau,
-      );
-      yield put({ type: 'get', payload: { page, limit } });
+
+    *add({ payload, callback }, { call }): any {
+      try {
+        yield call(addYeuCau, payload);
+        message.success('Gửi yêu cầu mượn thành công!');
+        if (callback) callback();
+      } catch (error) {
+        console.error('Lỗi khi tạo yêu cầu:', error);
+      }
+    },
+
+    *approve({ payload, callback }, { call }): any {
+      try {
+        yield call(duyetYeuCau, payload.id);
+        message.success('Phê duyệt yêu cầu thành công!');
+        if (callback) callback();
+      } catch (error) {
+        console.error('Lỗi khi phê duyệt yêu cầu:', error);
+      }
+    },
+
+    *reject({ payload, callback }, { call }): any {
+      try {
+        yield call(tuChoiYeuCau, payload.id);
+        message.warn('Đã từ chối yêu cầu.');
+        if (callback) callback();
+      } catch (error) {
+        console.error('Lỗi khi từ chối yêu cầu:', error);
+      }
     },
   },
+
   reducers: {
-    // Lỗi 'state' implicitly has an 'any' type được khắc phục nhờ Reducer<QuanLyYeuCauStateType>
     save(state, { payload }) {
       return { ...state, ...payload };
     },
   },
 };
+
 export default ModelQuanLyYeuCau;

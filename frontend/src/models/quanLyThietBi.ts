@@ -1,11 +1,10 @@
-import { getThietBi, addThietBi, updThietBi, delThietBi } from '@/services/QuanLyThietBi';
-import type { ThietBi } from '@/services/QuanLyThietBi/typing';
+import { addThietBi, delThietBi, getThietBi, updThietBi } from '@/services/QuanLyThietBi';
 import { message } from 'antd';
 import type { Effect, Reducer } from 'umi';
 
-// 1. Định nghĩa kiểu cho State
+// 1. Định nghĩa kiểu cho State - Cập nhật kiểu dữ liệu cho data
 export interface QuanLyThietBiStateType {
-  data: ThietBi[];
+  data: QuanLyThietBi.Record[]; // Sử dụng Record từ namespace QuanLyThietBi
   total: number;
   page: number;
   limit: number;
@@ -39,52 +38,76 @@ const ModelQuanLyThietBi: QuanLyThietBiModelType = {
     loading: false,
     filter: {},
   },
+
+  // === CẬP NHẬT TOÀN BỘ KHỐI EFFECTS ===
   effects: {
-    *get({ payload }, { call, put, select }) {
+     *get({ payload }, { call, put }): any {
+      // Tách callback và các tham số khác ra từ payload
+      const { callback, ...restPayload } = payload;
       yield put({ type: 'save', payload: { loading: true } });
-      // SỬA LỖI Ở ĐÂY: Thêm kiểu tường minh cho 'filter'
-      const filter: Record<string, any> = yield select(
-        (state: { quanLyThietBi: QuanLyThietBiStateType }) => state.quanLyThietBi.filter,
-      );
-      const newPayload = { ...filter, ...payload };
       try {
-        const response: { data: ThietBi[]; total: number } = yield call(getThietBi, newPayload);
-        yield put({
-          type: 'save',
-          payload: {
-            data: response.data ?? [],
-            total: response.total ?? 0,
-            page: newPayload.page,
-            limit: newPayload.limit,
-          },
-        });
+        const response = yield call(getThietBi, restPayload);
+        if (response && response.success) {
+          yield put({
+            type: 'save',
+            payload: {
+              data: response.data.docs,
+              total: response.data.totalDocs,
+              page: response.data.page,
+              limit: response.data.limit,
+            },
+          });
+          if (callback) callback(response.data); // Gọi callback và trả về dữ liệu
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy danh sách thiết bị:', error);
+        if (callback) callback(null); // Báo cho table biết là đã có lỗi
       } finally {
         yield put({ type: 'save', payload: { loading: false } });
       }
     },
-    *add({ payload }, { call, put, select }) {
-      const { page, limit } = yield select((state: { quanLyThietBi: QuanLyThietBiStateType }) => state.quanLyThietBi);
-      yield call(addThietBi, payload.values);
-      message.success('Thêm thiết bị thành công!');
-      yield put({ type: 'get', payload: { page, limit } });
+
+    *add({ payload, callback }, { call }) {
+      try {
+        yield call(addThietBi, payload);
+        message.success('Thêm thiết bị thành công!');
+        if (callback) callback(); // Gọi callback để refresh lại bảng
+      } catch (error) {
+        console.error('Lỗi khi thêm thiết bị:', error);
+      }
     },
-    *upd({ payload }, { call, put, select }) {
-      const { page, limit } = yield select((state: { quanLyThietBi: QuanLyThietBiStateType }) => state.quanLyThietBi);
-      yield call(updThietBi, payload.id, payload.values);
-      message.success('Cập nhật thiết bị thành công!');
-      yield put({ type: 'get', payload: { page, limit } });
+
+    *upd({ payload, callback }, { call }) {
+      try {
+        // Tách id và dữ liệu cần cập nhật từ payload
+        const { _id, ...data } = payload;
+        yield call(updThietBi, _id, data);
+        message.success('Cập nhật thiết bị thành công!');
+        if (callback) callback();
+      } catch (error) {
+        console.error('Lỗi khi cập nhật thiết bị:', error);
+      }
     },
-    *del({ payload }, { call, put, select }) {
-      const { page, limit } = yield select((state: { quanLyThietBi: QuanLyThietBiStateType }) => state.quanLyThietBi);
-      yield call(delThietBi, payload.id);
-      message.success('Xóa thiết bị thành công!');
-      yield put({ type: 'get', payload: { page, limit } });
+
+    *del({ payload, callback }, { call }) {
+      try {
+        // Hỗ trợ xóa nhiều: Lặp qua mảng các ID được gửi lên
+        for (const id of payload.id) {
+          yield call(delThietBi, id);
+        }
+        message.success('Xóa thiết bị thành công!');
+        if (callback) callback();
+      } catch (error) {
+        console.error('Lỗi khi xóa thiết bị:', error);
+      }
     },
   },
+
   reducers: {
     save(state, { payload }) {
       return { ...state, ...payload };
     },
   },
 };
+
 export default ModelQuanLyThietBi;

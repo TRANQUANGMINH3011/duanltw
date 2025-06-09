@@ -1,47 +1,42 @@
-import type { ThietBi } from './typing';
-import { mockEquipments } from '../../../mock/database'; // Import từ database chung
+import axios from '@/utils/axios';
 
-const APICustom = '/api/equipments';
+const API_URL = '/api/v1';
 
+/**
+ * Lấy danh sách thiết bị (dùng cho cả User và Admin)
+ * @param params Chứa các tham số phân trang và cờ `isAdmin`
+ */
 export async function getThietBi(params: {
-  page: number;
-  limit: number;
-  [key: string]: any;
-}): Promise<{ data: ThietBi[]; total: number }> {
-  const { page = 1, limit = 10, tenThietBi } = params;
-  let data = [...mockEquipments];
-  if (tenThietBi) {
-    data = data.filter((item) => item.tenThietBi.toLowerCase().includes(tenThietBi.toLowerCase()));
-  }
-  const total = data.length;
-  const paginatedData = data.slice((page - 1) * limit, page * limit);
-  return Promise.resolve({ data: paginatedData, total });
+  current?: number;
+  pageSize?: number;
+  isAdmin?: boolean;
+}) {
+  const url = params.isAdmin ? `${API_URL}/admin/devices` : `${API_URL}/devices`;
+  delete params.isAdmin;
+  return axios.get(url, { params }).then((res) => res.data);
 }
 
-export async function addThietBi(data: Omit<ThietBi, '_id'>) {
-  const newEquipment: ThietBi = {
-    _id: `device-${new Date().getTime()}`,
-    ...data,
-    soLuongDaChoMuon: 0,
-    soLuongConLai: data.soLuongTong,
-    ngayTao: new Date().toISOString(),
-  };
-  mockEquipments.unshift(newEquipment);
-  return Promise.resolve(newEquipment);
+/**
+ * [Admin] Thêm mới một thiết bị
+ * @param data Dữ liệu của thiết bị mới
+ */
+export async function addThietBi(data: Partial<API.Device>) {
+  return axios.post(`${API_URL}/admin/devices`, data);
 }
 
-export async function updThietBi(id: string, data: Partial<ThietBi>) {
-  const index = mockEquipments.findIndex(item => item._id === id);
-  if (index !== -1) {
-    mockEquipments[index] = { ...mockEquipments[index], ...data };
-  }
-  return Promise.resolve(mockEquipments[index]);
+/**
+ * [Admin] Cập nhật thông tin một thiết bị
+ * @param id ID của thiết bị cần cập nhật
+ * @param data Dữ liệu mới
+ */
+export async function updThietBi(id: string, data: Partial<API.Device>) {
+  return axios.put(`${API_URL}/admin/devices/${id}`, data);
 }
 
+/**
+ * [Admin] Xóa một thiết bị
+ * @param id ID của thiết bị cần xóa
+ */
 export async function delThietBi(id: string) {
-    const index = mockEquipments.findIndex(item => item._id === id);
-    if (index !== -1) {
-        mockEquipments.splice(index, 1);
-    }
-  return Promise.resolve({ success: true });
+  return axios.delete(`${API_URL}/admin/devices/${id}`);
 }

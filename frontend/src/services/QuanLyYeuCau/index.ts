@@ -1,21 +1,35 @@
-import type { YeuCau } from './typing';
-import { mockRequests } from '../../../mock/database'; // Import từ database chung
+import axios from '@/utils/axios';
 
-export async function getYeuCau(params: {
-  page: number;
-  limit: number;
-  [key: string]: any;
-}): Promise<{ data: YeuCau[]; total: number }> {
-  const { page = 1, limit = 10 } = params;
-  const total = mockRequests.length;
-  const paginatedData = mockRequests.slice((page - 1) * limit, page * limit);
-  return Promise.resolve({ data: paginatedData, total });
+const API_URL = '/api/v1';
+
+// ================= API CHO ADMIN =================
+
+/**
+ * [Admin] Lấy danh sách tất cả yêu cầu mượn
+ */
+export async function getYeuCau(params: any) {
+  return axios.get(`${API_URL}/admin/borrow-requests`, { params }).then((res) => res.data);
 }
 
-export async function updateTrangThaiYeuCau(id: string, trangThai: YeuCau['trangThai']) {
-  const index = mockRequests.findIndex((item) => item._id === id);
-  if (index !== -1) {
-    mockRequests[index].trangThai = trangThai;
-  }
-  return Promise.resolve({ success: true });
+/**
+ * [Admin] Phê duyệt một yêu cầu mượn
+ */
+export async function duyetYeuCau(id: string) {
+  return axios.patch(`${API_URL}/admin/borrow-requests/${id}/approve`);
+}
+
+/**
+ * [Admin] Từ chối một yêu cầu mượn
+ */
+export async function tuChoiYeuCau(id: string) {
+  return axios.patch(`${API_URL}/admin/borrow-requests/${id}/reject`);
+}
+
+// ================= API CHO USER =================
+
+/**
+ * [User] Tạo một yêu cầu mượn mới
+ */
+export async function addYeuCau(data: { device: string; borrowDate: Date; returnDate: Date }) {
+  return axios.post(`${API_URL}/borrow-requests`, data);
 }

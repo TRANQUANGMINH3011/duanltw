@@ -1,99 +1,133 @@
-import React, { useState } from 'react';
-import TableBase from '@/components/Table';
-import { Tag, Button, Space, Popconfirm, Modal } from 'antd';
+import { PageContainer } from '@ant-design/pro-layout';
+// Sửa lại import: ProTable và các kiểu liên quan đều từ @ant-design/pro-table
+import ProTable, { ActionType, ProColumns } from '@ant-design/pro-table';
+// Không cần import 'Tag' nữa vì không dùng đến
+import React, { useRef } from 'react';
 import { useDispatch } from 'umi';
-import type { YeuCau } from '@/services/QuanLyYeuCau/typing';
-import moment from 'moment';
-import DetailView from './components/DetailView';
-import { EyeOutlined } from '@ant-design/icons';
 
-const RequestsPage: React.FC = () => {
+const QuanLyYeuCauPage: React.FC = () => {
+  const actionRef = useRef<ActionType>();
   const dispatch = useDispatch();
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentRecord, setCurrentRecord] = useState<YeuCau | undefined>(undefined);
 
-  const handleAction = (id: string, trangThai: YeuCau['trangThai'], successMessage: string) => {
+  const handleApprove = (id: string) => {
     dispatch({
-      type: 'quanLyYeuCau/updateTrangThai',
-      payload: { id, trangThai, successMessage },
+      type: 'quanLyYeuCau/approve',
+      payload: { id },
+      callback: () => {
+        actionRef.current?.reload(); // Tải lại bảng sau khi duyệt
+      },
     });
   };
 
-  const showDetailModal = (record: YeuCau) => {
-    setCurrentRecord(record);
-    setIsModalVisible(true);
+  const handleReject = (id: string) => {
+    dispatch({
+      type: 'quanLyYeuCau/reject',
+      payload: { id },
+      callback: () => {
+        actionRef.current?.reload(); // Tải lại bảng sau khi từ chối
+      },
+    });
   };
 
-  // SỬA LỖI Ở ĐÂY: Thêm thuộc tính 'width' cho mỗi cột
-  const columns: any = [
-    { title: 'STT', dataIndex: 'index', valueType: 'indexBorder', width: 80 },
-    { title: 'Người mượn', dataIndex: ['nguoiMuon', 'ten'], search: true, width: 200 },
-    { title: 'Thiết bị', dataIndex: ['thietBi', 'ten'], search: true, width: 220 },
+  const columns: ProColumns<QuanLyYeuCau.Record>[] = [
     {
-      title: 'Ngày yêu cầu',
-      dataIndex: 'ngayYeuCau',
-      width: 150,
-      render: (date: string) => moment(date).format('DD/MM/YYYY'),
+      title: 'STT',
+      dataIndex: 'index',
+      valueType: 'indexBorder',
+      width: 48,
+    },
+    {
+      title: 'Tên người mượn',
+      // ProTable có thể tự truy cập thuộc tính lồng nhau
+      dataIndex: ['user', 'name'],
+      copyable: true,
+    },
+    {
+      title: 'Tên thiết bị',
+      dataIndex: ['device', 'name'],
+      copyable: true,
+    },
+    {
+      title: 'Ngày mượn',
+      dataIndex: 'borrowDate',
+      valueType: 'date',
+      sorter: true,
+    },
+    {
+      title: 'Ngày trả',
+      dataIndex: 'returnDate',
+      valueType: 'date',
+      sorter: true,
     },
     {
       title: 'Trạng thái',
-      dataIndex: 'trangThai',
-      width: 150,
-      render: (trangThai: string) => {
-        let color = 'default';
-        if (trangThai === 'Đã duyệt') color = 'success';
-        if (trangThai === 'Đã từ chối') color = 'error';
-        if (trangThai === 'Chờ duyệt') color = 'processing';
-        if (trangThai === 'Đã lấy') color = 'blue';
-        if (trangThai === 'Đã trả') color = 'purple';
-        return <Tag color={color}>{trangThai.toUpperCase()}</Tag>;
+      dataIndex: 'status',
+      valueType: 'select',
+      valueEnum: {
+        pending: { text: 'Chờ duyệt', status: 'Warning' },
+        approved: { text: 'Đã duyệt', status: 'Success' },
+        rejected: { text: 'Đã từ chối', status: 'Error' },
+        completed: { text: 'Đã hoàn thành', status: 'Default' },
+        overdue: { text: 'Quá hạn', status: 'Error' },
       },
     },
     {
       title: 'Hành động',
       valueType: 'option',
-      width: 250,
-      fixed: 'right', // Cố định cột hành động ở bên phải
-      render: (_: any, record: YeuCau) => (
-        <Space>
-           <Button icon={<EyeOutlined />} size="small" onClick={() => showDetailModal(record)}>Chi tiết</Button>
-          {record.trangThai === 'Chờ duyệt' && (
-            <>
-              <Popconfirm
-                title="Duyệt yêu cầu này?"
-                onConfirm={() => handleAction(record._id, 'Đã duyệt', 'Duyệt yêu cầu thành công!')}
-              >
-                <Button size="small" type="primary">Duyệt</Button>
-              </Popconfirm>
-              <Popconfirm
-                title="Từ chối yêu cầu này?"
-                onConfirm={() => handleAction(record._id, 'Đã từ chối', 'Đã từ chối yêu cầu!')}
-              >
-                <Button size="small" danger>Từ chối</Button>
-              </Popconfirm>
-            </>
-          )}
-        </Space>
-      ),
+      width: 120,
+      // Thêm kiểu dữ liệu cho tham số record
+      render: (_, record: QuanLyYeuCau.Record) =>
+        record.status === 'pending'
+          ? [
+              <a key="approve" onClick={() => handleApprove(record._id)}>
+                Duyệt
+              </a>,
+              <a key="reject" style={{ color: 'red' }} onClick={() => handleReject(record._id)}>
+                Từ chối
+              </a>,
+            ]
+          : null,
     },
   ];
-  
+
   return (
-    <>
-      <TableBase title="Quản lý yêu cầu mượn" modelName="quanLyYeuCau" columns={columns} />
-      {currentRecord && (
-         <Modal
-            title="Chi tiết yêu cầu mượn"
-            visible={isModalVisible}
-            onCancel={() => setIsModalVisible(false)}
-            footer={null} // Không cần nút OK/Cancel
-            width={700}
-         >
-           <DetailView record={currentRecord} />
-         </Modal>
-      )}
-    </>
+    <PageContainer>
+      <ProTable<QuanLyYeuCau.Record>
+        headerTitle="Danh sách yêu cầu mượn thiết bị"
+        actionRef={actionRef}
+        rowKey="_id"
+        search={{
+          labelWidth: 120,
+        }}
+        // Cập nhật lại prop request để dùng callback
+        request={(params: Record<string, any>) => {
+          return new Promise((resolve) => {
+            const payload = {
+              ...params,
+              page: params.current,
+              pageSize: params.pageSize,
+              callback: (response: any) => {
+                if (response) {
+                  resolve({
+                    data: response.docs,
+                    success: true,
+                    total: response.totalDocs,
+                  });
+                } else {
+                  resolve({ data: [], success: false, total: 0 });
+                }
+              },
+            };
+            dispatch({
+              type: 'quanLyYeuCau/get',
+              payload,
+            });
+          });
+        }}
+        columns={columns}
+      />
+    </PageContainer>
   );
 };
 
-export default RequestsPage;
+export default QuanLyYeuCauPage;

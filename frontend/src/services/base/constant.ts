@@ -13,6 +13,7 @@ export enum EModuleKey {
 	KT = 'khao-thi',
 	CSVC = 'co-so-vat-chat',
 }
+export const API = '/api/v1';
 
 export const AppModules: Record<EModuleKey, Login.TModule> = {
 	[EModuleKey.CONNECT]: {

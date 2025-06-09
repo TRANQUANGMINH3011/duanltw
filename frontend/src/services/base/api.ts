@@ -82,3 +82,33 @@ export async function updateSetting(id: string, payload: { key: ESettingKey; val
 export async function createSetting(payload: { key: ESettingKey; value: any }, ip?: string) {
 	return axios.post(`${ip ?? ip3}/setting`, payload);
 }
+
+
+const NEW_API_URL = '/api/v1';
+
+/**
+ * [HÀM MỚI] Dùng để đăng nhập cho user và admin qua form username/password.
+ */
+export async function loginWithPassword(body: API.LoginParams) {
+  const { type, ...rest } = body;
+  const url = type === 'admin' ? `${NEW_API_URL}/admin/auth/login` : `${NEW_API_URL}/auth/login`;
+  return axios.post(url, rest).then(res => res.data);
+}
+
+/**
+ * [HÀM MỚI] Dùng để lấy thông tin người dùng từ backend mới.
+ */
+export async function getCurrentUserFromApi() {
+  const userType = localStorage.getItem('userType');
+  const url = userType === 'admin' ? `${NEW_API_URL}/admin/auth/me` : `${NEW_API_URL}/auth/me`;
+  return axios.get(url).then(res => ({ data: res.data.data }));
+}
+
+/**
+ * [HÀM MỚI] Dùng để đăng xuất khỏi backend mới.
+ */
+export async function logoutFromApi() {
+    const userType = localStorage.getItem('userType');
+    const url = userType === 'admin' ? `${NEW_API_URL}/admin/auth/logout` : `${NEW_API_URL}/auth/logout`;
+    return axios.post(url);
+}

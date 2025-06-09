@@ -1,195 +1,121 @@
+// frontend/src/pages/user/Login/index.tsx
+
 import Footer from '@/components/Footer';
-import LoginWithKeycloak from '@/pages/user/Login/KeycloakLogin';
-import { adminlogin, getUserInfo } from '@/services/base/api';
-import { keycloakAuthority } from '@/utils/ip';
+// Bỏ các import cũ, thay bằng hàm mới của chúng ta
+import { loginWithPassword } from '@/services/base/api';
 import rules from '@/utils/rules';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Tabs, message } from 'antd';
 import React, { useState } from 'react';
-// import Recaptcha from 'react-recaptcha';
 import { history, useIntl, useModel } from 'umi';
 import styles from './index.less';
 
 const Login: React.FC = () => {
-	const [count, setCount] = useState<number>(Number(localStorage?.getItem('failed')) || 0);
-	const [submitting, setSubmitting] = useState(false);
-	const [type, setType] = useState<string>('account');
-	const { initialState, setInitialState } = useModel('@@initialState');
-	const [isVerified, setIsverified] = useState<boolean>(true);
-	const [visibleCaptcha, setVisibleCaptcha] = useState<boolean>(false);
-	// const [visibleCaptcha2, setVisibleCaptcha2] = useState<boolean>(false);
-	// const recaptchaRef = useRef(null);
-	const intl = useIntl();
-	const [form] = Form.useForm();
+  const [submitting, setSubmitting] = useState(false);
+  // State để xác định loại đăng nhập: 'user' hoặc 'admin'
+  const [loginType, setLoginType] = useState<'user' | 'admin'>('user');
+  const { setInitialState } = useModel('@@initialState');
+  const intl = useIntl();
+  const [form] = Form.useForm();
 
-	/**
-	 * Xử lý token, get info sau khi đăng nhập
-	 */
-	const handleRole = async (role: { access_token: string; refresh_token: string }) => {
-		// Tobe removed
-		localStorage.setItem('token', role?.access_token);
-		localStorage.setItem('refreshToken', role?.refresh_token);
+  const handleSubmit = async (values: API.LoginParams) => {
+    setSubmitting(true);
+    try {
+      // Gọi hàm API mới, truyền cả `values` và `loginType`
+      const response = await loginWithPassword({ ...values, type: loginType });
 
-		// const decoded = jwt_decode(role?.access_token) as any;
-		const info = await getUserInfo();
-		setInitialState({
-			...initialState,
-			currentUser: info?.data?.data,
-			// authorizedPermissions: decoded?.authorization?.permissions,
-		});
+      // Backend trả về { accessToken, user, message }
+      if (response && response.accessToken) {
+        message.success('Đăng nhập thành công!');
 
-		const defaultloginSuccessMessage = intl.formatMessage({
-			id: 'pages.login.success',
-			defaultMessage: 'success',
-		});
-		message.success(defaultloginSuccessMessage);
-		history.push('/dashboard');
-	};
+        // Lưu token và loại người dùng vào localStorage để các hàm khác sử dụng
+        localStorage.setItem('accessToken', response.accessToken);
+        localStorage.setItem('userType', loginType);
 
-	const handleSubmit = async (values: { login: string; password: string }) => {
-		try {
-			if (!isVerified) {
-				message.error('Vui lòng xác thực Captcha');
-				return;
-			}
-			setSubmitting(true);
-			const msg = await adminlogin({ ...values, username: values?.login ?? '' });
-			if (msg.status === 200 && msg?.data?.data?.accessToken) {
-				handleRole(msg?.data?.data);
-				localStorage.removeItem('failed');
-			}
-		} catch (error) {
-			if (count >= 4) {
-				setIsverified(false);
-				setVisibleCaptcha(!visibleCaptcha);
-				// setVisibleCaptcha2(true);
-			}
-			setCount(count + 1);
-			localStorage.setItem('failed', (count + 1).toString());
-			const defaultloginFailureMessage = intl.formatMessage({
-				id: 'pages.login.failure',
-				defaultMessage: 'failure',
-			});
-			message.error(defaultloginFailureMessage);
-		}
-		setSubmitting(false);
-	};
+        // Cập nhật trạng thái người dùng toàn cục
+        await setInitialState((s) => ({ ...s, currentUser: response.user as any }));
 
-	// const verifyCallback = (response: any) => {
-	// 	if (response) setIsverified(true);
-	// 	else setIsverified(false);
-	// };
+        // Chuyển hướng đến trang dashboard hoặc trang trước đó
+        const urlParams = new URL(window.location.href).searchParams;
+        history.push(urlParams.get('redirect') || '/');
+      }
+      // Nếu có lỗi, interceptor trong axios.ts sẽ tự động hiển thị thông báo
+    } catch (error) {
+      console.error(error);
+    }
+    setSubmitting(false);
+  };
 
-	return (
-		<div className={styles.container}>
-			<div className={styles.content}>
-				<div className={styles.top}>
-					<div className={styles.header}>
-						<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-							<img alt='logo' className={styles.logo} src='/logo-full.svg' />
-						</div>
-					</div>
-				</div>
+  const LoginForm = () => (
+    <Form form={form} name="login" onFinish={handleSubmit} layout="vertical">
+      <Form.Item label="" name="username" rules={[...rules.required]}>
+        <Input
+          placeholder={intl.formatMessage({
+            id: 'pages.login.username.placeholder',
+            defaultMessage: 'Nhập tên đăng nhập',
+          })}
+          prefix={<UserOutlined className={styles.prefixIcon} />}
+          size="large"
+        />
+      </Form.Item>
+      <Form.Item label="" name="password" rules={[...rules.required]}>
+        <Input.Password
+          placeholder={intl.formatMessage({
+            id: 'pages.login.password.placeholder',
+            defaultMessage: 'Nhập mật khẩu',
+          })}
+          prefix={<LockOutlined className={styles.prefixIcon} />}
+          size="large"
+        />
+      </Form.Item>
+      <div style={{ marginBottom: 24 }}>
+        {/* Có thể thêm checkbox "Tự động đăng nhập" ở đây nếu cần */}
+      </div>
+      <Button type="primary" htmlType="submit" block size="large" loading={submitting}>
+        {intl.formatMessage({ id: 'pages.login.submit', defaultMessage: 'Đăng nhập' })}
+      </Button>
+    </Form>
+  );
 
-				<div className={styles.main}>
-					<Tabs activeKey={type} onChange={setType}>
-						<Tabs.TabPane
-							key='account'
-							tab={intl.formatMessage({
-								id: 'pages.login.accountLogin.tab',
-								defaultMessage: 'tab',
-							})}
-						/>
-						{/* <Tabs.TabPane
-              key="accountAdmin"
+  return (
+    <div className={styles.container}>
+      <div className={styles.content}>
+        <div className={styles.top}>
+          <div className={styles.header}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <img alt="logo" className={styles.logo} src="/logo-full.svg" />
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.main}>
+          {/* Sử dụng Tabs để chuyển đổi giữa form User và Admin */}
+          <Tabs activeKey={loginType} onChange={(activeKey) => setLoginType(activeKey as any)}>
+            <Tabs.TabPane
+              key="user"
               tab={intl.formatMessage({
-                id: 'pages.login.accountLoginAdmin.tab',
-                defaultMessage: 'tab',
+                id: 'pages.login.userLogin.tab',
+                defaultMessage: 'Người dùng',
               })}
-            /> */}
-					</Tabs>
+            />
+            <Tabs.TabPane
+              key="admin"
+              tab={intl.formatMessage({
+                id: 'pages.login.adminLogin.tab',
+                defaultMessage: 'Quản trị viên',
+              })}
+            />
+          </Tabs>
 
-					{type === 'account' ? (
-						<LoginWithKeycloak />
-					) : type === 'accountAdmin' ? (
-						<Form
-							form={form}
-							onFinish={async (values) => handleSubmit(values as { login: string; password: string })}
-							layout='vertical'
-						>
-							<Form.Item label='' name='login' rules={[...rules.required]}>
-								<Input
-									placeholder={intl.formatMessage({
-										id: 'pages.login.username.placeholder',
-										defaultMessage: 'Nhập tên đăng nhập',
-									})}
-									prefix={<UserOutlined className={styles.prefixIcon} />}
-									size='large'
-								/>
-							</Form.Item>
-							<Form.Item label='' name='password' rules={[...rules.required]}>
-								<Input.Password
-									placeholder={intl.formatMessage({
-										id: 'pages.login.password.placeholder',
-										defaultMessage: 'Nhập mật khẩu',
-									})}
-									prefix={<LockOutlined className={styles.prefixIcon} />}
-									size='large'
-								/>
-							</Form.Item>
+          <LoginForm />
+        </div>
+      </div>
 
-							<Button type='primary' block size='large' loading={submitting}>
-								{intl.formatMessage({
-									id: 'pages.login.submit',
-									defaultMessage: 'submit',
-								})}
-							</Button>
-						</Form>
-					) : null}
-
-					<br />
-					<div style={{ textAlign: 'center' }}>
-						<Button
-							onClick={() => {
-								window.open(keycloakAuthority + '/login-actions/reset-credentials');
-							}}
-							type='link'
-						>
-							Quên mật khẩu?
-						</Button>
-
-						{/* {type === 'accountAdmin' && visibleCaptcha && count >= 5 && (
-              <Recaptcha
-                ref={recaptchaRef}
-                size="normal"
-                sitekey="6LelHsEeAAAAAJmsVdeC2EPNCAVEtfRBUGSKireh"
-                render="explicit"
-                hl="vi"
-                // onloadCallback={callback}
-                verifyCallback={verifyCallback}
-              />
-            )}
-
-            {type === 'accountAdmin' && !visibleCaptcha && visibleCaptcha2 && count >= 5 && (
-              <Recaptcha
-                ref={recaptchaRef}
-                size="normal"
-                sitekey="6LelHsEeAAAAAJmsVdeC2EPNCAVEtfRBUGSKireh"
-                render="explicit"
-                hl="vi"
-                // onloadCallback={callback}
-                verifyCallback={verifyCallback}
-              />
-            )} */}
-					</div>
-				</div>
-			</div>
-
-			<div className='login-footer'>
-				<Footer />
-			</div>
-		</div>
-	);
+      <div className="login-footer">
+        <Footer />
+      </div>
+    </div>
+  );
 };
 
 export default Login;

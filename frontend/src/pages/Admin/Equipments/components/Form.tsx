@@ -1,36 +1,54 @@
-import React from 'react';
-import { Form, Input, InputNumber, Select } from 'antd';
-import type { ThietBi } from '@/services/QuanLyThietBi/typing';
+import rules from '@/utils/rules';
+import { Form, Input, Select } from 'antd';
+// Bỏ import useForm vì chúng ta sẽ nhận form từ bên ngoài
+import { useEffect } from 'react';
 
-const { TextArea } = Input;
-const { Option } = Select;
-
-type FormThietBiProps = {
+// Định nghĩa kiểu cho props để code rõ ràng hơn
+interface FormThietBiProps {
+  onFinish: (values: any) => void;
+  initialValues?: Partial<QuanLyThietBi.Record>;
   form: any;
-  record?: ThietBi;
-};
+}
 
-const FormThietBi: React.FC<FormThietBiProps> = ({ form, record }) => {
+const FormThietBi = (props: FormThietBiProps) => {
+  const { onFinish, initialValues, form } = props;
+
+  useEffect(() => {
+    // Set giá trị cho form khi có dữ liệu ban đầu (chế độ sửa)
+    if (initialValues) {
+      form.setFieldsValue(initialValues);
+    } else {
+      // Reset form khi ở chế độ thêm mới
+      form.resetFields();
+    }
+  }, [initialValues, form]);
+
   return (
-    <Form form={form} layout="vertical" initialValues={record}>
-      <Form.Item name="tenThietBi" label="Tên thiết bị" rules={[{ required: true }]}>
-        <Input />
+    // Bỏ prop onFinish ở đây vì Modal sẽ xử lý việc submit
+    <Form form={form} layout="vertical" onFinish={onFinish}>
+      <Form.Item name="name" label="Tên thiết bị" rules={[...rules.required]}>
+        <Input placeholder="Nhập tên thiết bị" />
       </Form.Item>
-      <Form.Item name="loaiThietBi" label="Loại thiết bị" rules={[{ required: true }]}>
-        <Input placeholder="VD: Âm thanh, Trình chiếu,..." />
+      <Form.Item name="model" label="Model">
+        <Input placeholder="Nhập model thiết bị" />
       </Form.Item>
-      <Form.Item name="soLuongTong" label="Tổng số lượng" rules={[{ required: true }]}>
-        <InputNumber min={1} style={{ width: '100%' }} />
+      <Form.Item name="description" label="Mô tả">
+        <Input.TextArea placeholder="Nhập mô tả" />
       </Form.Item>
-      <Form.Item name="tinhTrang" label="Tình trạng" initialValue="Sẵn sàng">
+      <Form.Item name="condition" label="Tình trạng" initialValue="new">
         <Select>
-          <Option value="Sẵn sàng">Sẵn sàng</Option>
-          <Option value="Hết hàng">Hết hàng</Option>
-          <Option value="Bảo trì">Bảo trì</Option>
+          <Select.Option value="new">Mới</Select.Option>
+          <Select.Option value="good">Tốt</Select.Option>
+          <Select.Option value="fair">Khá</Select.Option>
+          <Select.Option value="poor">Kém</Select.Option>
         </Select>
       </Form.Item>
-      <Form.Item name="moTa" label="Mô tả">
-        <TextArea rows={4} />
+      <Form.Item name="status" label="Trạng thái" initialValue="available">
+        <Select>
+          <Select.Option value="available">Sẵn có</Select.Option>
+          <Select.Option value="in_use">Đang sử dụng</Select.Option>
+          <Select.Option value="under_maintenance">Đang bảo trì</Select.Option>
+        </Select>
       </Form.Item>
     </Form>
   );

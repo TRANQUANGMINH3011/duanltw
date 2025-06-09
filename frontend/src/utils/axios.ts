@@ -46,7 +46,24 @@ import data from './data';
 //   },
 //   (error) => Promise.reject(error),
 // );
-
+// Add a request interceptor
+axios.interceptors.request.use(
+  (config) => {
+    // Chỉ thêm token nếu request chưa có header Authorization
+    if (!config.headers.Authorization) {
+      // Lấy token từ localStorage (được lưu sau khi đăng nhập thành công)
+      // Chúng ta thống nhất dùng tên là 'accessToken'
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        // Gán token vào header cho request này
+        // eslint-disable-next-line no-param-reassign
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
 // Add a response interceptor
 axios.interceptors.response.use(
 	(response) =>

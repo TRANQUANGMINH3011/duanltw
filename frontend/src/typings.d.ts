@@ -59,3 +59,72 @@ declare const APP_CONFIG_TITLE_CORE: string;
 declare const APP_CONFIG_TITLE_CSVC: string;
 declare const APP_CONFIG_TITLE_THU_VIEN: string;
 declare const APP_CONFIG_TITLE_QLVB: string;
+declare namespace API {
+  /**
+   * Kiểu dữ liệu cho người dùng đang đăng nhập
+   * Dùng cho hệ thống login mới của chúng ta
+   */
+  type CurrentUser = {
+    _id?: string;
+    name?: string;
+    avatar?: string;
+    email?: string;
+    role?: {
+      _id?: string;
+      name?: string;
+      permissions?: string[];
+    };
+  };
+
+  /**
+   * Kiểu dữ liệu trả về của API đăng nhập mới
+   */
+  type LoginResult = {
+    message?: string;
+    accessToken?: string;
+    user?: CurrentUser;
+  };
+
+  /**
+   * Kiểu dữ liệu cho các tham số của form đăng nhập mới
+   */
+  type LoginParams = {
+    username?: string;
+    password?: string;
+    autoLogin?: boolean;
+    type?: string; // 'user' or 'admin'
+  };
+  
+  /**
+   * Kiểu dữ liệu cho một thiết bị
+   */
+  type Device = {
+    _id: string;
+    name: string;
+    description: string;
+    model: string;
+    status: 'available' | 'in_use' | 'under_maintenance';
+    condition: 'new' | 'good' | 'fair' | 'poor';
+    imageUrl: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+declare namespace QuanLyThietBi {
+  // Dùng lại kiểu Device đã định nghĩa ở trên
+  export type Record = API.Device;
+}
+// File này định nghĩa cấu trúc của một bản ghi yêu cầu mượn thiết bị
+// Nó bao gồm cả thông tin chi tiết của người dùng và thiết bị được mượn
+declare namespace QuanLyYeuCau {
+  export type Record = {
+    _id: string;
+    user: API.CurrentUser;
+    device: API.Device;
+    borrowDate: string;
+    returnDate: string;
+    status: 'pending' | 'approved' | 'rejected' | 'completed' | 'overdue';
+    createdAt: string;
+    updatedAt: string;
+  };
+}
